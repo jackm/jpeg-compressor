@@ -35,17 +35,77 @@ static inline void *jpgd_malloc(size_t nSize) { return malloc(nSize); }
 static inline void jpgd_free(void *p) { free(p); }
 
 // DCT coefficients are stored in this sequence.
-static int g_ZAG[64] = {  0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63 };
-
-enum JPEG_MARKER
+static int g_ZAG[64] =
 {
-  M_SOF0  = 0xC0, M_SOF1  = 0xC1, M_SOF2  = 0xC2, M_SOF3  = 0xC3, M_SOF5  = 0xC5, M_SOF6  = 0xC6, M_SOF7  = 0xC7, M_JPG   = 0xC8,
-  M_SOF9  = 0xC9, M_SOF10 = 0xCA, M_SOF11 = 0xCB, M_SOF13 = 0xCD, M_SOF14 = 0xCE, M_SOF15 = 0xCF, M_DHT   = 0xC4, M_DAC   = 0xCC,
-  M_RST0  = 0xD0, M_RST1  = 0xD1, M_RST2  = 0xD2, M_RST3  = 0xD3, M_RST4  = 0xD4, M_RST5  = 0xD5, M_RST6  = 0xD6, M_RST7  = 0xD7,
-  M_SOI   = 0xD8, M_EOI   = 0xD9, M_SOS   = 0xDA, M_DQT   = 0xDB, M_DNL   = 0xDC, M_DRI   = 0xDD, M_DHP   = 0xDE, M_EXP   = 0xDF,
-  M_APP0  = 0xE0, M_APP15 = 0xEF, M_JPG0  = 0xF0, M_JPG13 = 0xFD, M_COM   = 0xFE, M_TEM   = 0x01, M_ERROR = 0x100, RST0   = 0xD0
+    0, 1, 8, 16, 9, 2, 3, 10,
+    17, 24, 32, 25, 18, 11, 4, 5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13, 6, 7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63
 };
 
+// JPEG header marker pre-defined values
+// See https://en.wikibooks.org/wiki/JPEG_-_Idea_and_Practice/The_header_part#The_markers
+enum JPEG_MARKER
+{
+    M_SOF0 = 0xC0,
+    M_SOF1 = 0xC1,
+    M_SOF2 = 0xC2,
+    M_SOF3 = 0xC3,
+    M_SOF5 = 0xC5,
+    M_SOF6 = 0xC6,
+    M_SOF7 = 0xC7,
+
+    M_JPG = 0xC8,
+
+    M_SOF9 = 0xC9,
+    M_SOF10 = 0xCA,
+    M_SOF11 = 0xCB,
+    M_SOF13 = 0xCD,
+    M_SOF14 = 0xCE,
+    M_SOF15 = 0xCF,
+
+    M_DHT = 0xC4,
+
+    M_DAC = 0xCC,
+
+    M_RST0 = 0xD0,
+    M_RST1 = 0xD1,
+    M_RST2 = 0xD2,
+    M_RST3 = 0xD3,
+    M_RST4 = 0xD4,
+    M_RST5 = 0xD5,
+    M_RST6 = 0xD6,
+    M_RST7 = 0xD7,
+
+    M_SOI = 0xD8,
+    M_EOI = 0xD9,
+    M_SOS = 0xDA,
+    M_DQT = 0xDB,
+    M_DNL = 0xDC,
+    M_DRI = 0xDD,
+    M_DHP = 0xDE,
+    M_EXP = 0xDF,
+
+    M_APP0 = 0xE0,
+    M_APP15 = 0xEF,
+
+    M_JPG0 = 0xF0,
+    M_JPG13 = 0xFD,
+
+    M_COM = 0xFE,
+
+    M_TEM = 0x01,
+
+    M_ERROR = 0x100,
+
+    RST0 = 0xD0
+};
+
+// Subsampling options
 enum JPEG_SUBSAMPLING { JPGD_GRAYSCALE = 0, JPGD_YH1V1, JPGD_YH2V1, JPGD_YH1V2, JPGD_YH2V2 };
 
 #define CONST_BITS  13
@@ -347,7 +407,7 @@ inline uint jpeg_decoder::get_char()
       int t = m_tem_flag;
       m_tem_flag ^= 1;
       if (t)
-        return 0xD9;
+        return M_EOI;
       else
         return 0xFF;
     }
@@ -371,7 +431,7 @@ inline uint jpeg_decoder::get_char(bool *pPadding_flag)
       int t = m_tem_flag;
       m_tem_flag ^= 1;
       if (t)
-        return 0xD9;
+        return M_EOI;
       else
         return 0xFF;
     }
@@ -392,7 +452,8 @@ inline void jpeg_decoder::stuff_char(uint8 q)
   m_in_buf_left++;
 }
 
-// Retrieves one character from the input stream, but does not read past markers. Will continue to return 0xFF when a marker is encountered.
+// Retrieves one character from the input stream, but does not read past markers.
+// Will continue to return 0xFF when a marker is encountered.
 inline uint8 jpeg_decoder::get_octet()
 {
   bool padding_flag;
@@ -451,7 +512,9 @@ inline uint jpeg_decoder::get_bits(int num_bits)
   return i;
 }
 
-// Retrieves a variable number of bits from the input stream. Markers will not be read into the input bit buffer. Instead, an infinite number of all 1's will be returned when a marker is encountered.
+// Retrieves a variable number of bits from the input stream.
+// Markers will not be read into the input bit buffer.
+// Instead, an infinite number of all 1's will be returned when a marker is encountered.
 inline uint jpeg_decoder::get_bits_no_markers(int num_bits)
 {
   if (!num_bits)
@@ -2927,6 +2990,7 @@ void jpeg_decoder::decode_init(jpeg_decoder_stream *pStream)
   locate_sof_marker();
 }
 
+// Constructor
 jpeg_decoder::jpeg_decoder(jpeg_decoder_stream *pStream)
 {
   if (setjmp(m_jmp_state))
@@ -2952,6 +3016,7 @@ int jpeg_decoder::begin_decoding()
   return JPGD_SUCCESS;
 }
 
+// Destructor
 jpeg_decoder::~jpeg_decoder()
 {
   free_all_blocks();

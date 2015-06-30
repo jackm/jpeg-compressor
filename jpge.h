@@ -99,9 +99,9 @@ namespace jpge
 
     typedef int32 sample_array_t;
         
-    output_stream *m_pStream;
+    output_stream *m_pStream; /* Main output data stream */
     params m_params;
-    uint8 m_num_components;
+    uint8 m_num_components;   /* 1 = grayscale (luma only), 3 = full YCbCr (luma and chroma) */
     uint8 m_comp_h_samp[3], m_comp_v_samp[3];
     int m_image_x, m_image_y, m_image_bpp, m_image_bpl;
     int m_image_x_mcu, m_image_y_mcu;

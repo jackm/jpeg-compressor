@@ -443,10 +443,11 @@ int main(int arg_c, char* ppArgs[])
   // Now create the JPEG file.
   if (test_memory_compression)
   {
-    int buf_size = width * height * 3; // allocate a buffer that's hopefully big enough (this is way overkill for jpeg)
-    if (buf_size < 1024) buf_size = 1024;
+    int buf_size = width * height * 3;    // Allocate a buffer that's hopefully big enough (this is way overkill for jpeg)
+    if (buf_size < 1024) buf_size = 1024; // Absolute minimum buffer size of 1024
     void *pBuf = malloc(buf_size);
 
+    // Compress to JPEG format in memory buffer
     tm.start();
     if (!jpge::compress_image_to_jpeg_file_in_memory(pBuf, buf_size, width, height, req_comps, pImage_data, params))
     {
@@ -455,6 +456,7 @@ int main(int arg_c, char* ppArgs[])
     }
     tm.stop();
 
+    // Open destination file
     FILE *pFile = fopen(pDst_filename, "wb");
     if (!pFile)
     {
@@ -462,12 +464,14 @@ int main(int arg_c, char* ppArgs[])
        return EXIT_FAILURE;
     }
 
+    // Write to destination file
     if (fwrite(pBuf, buf_size, 1, pFile) != 1)
     {
        log_printf("Failed writing to output file!\n");
        return EXIT_FAILURE;
     }
 
+    // Close destination file
     if (fclose(pFile) == EOF)
     {
        log_printf("Failed writing to output file!\n");
@@ -476,8 +480,10 @@ int main(int arg_c, char* ppArgs[])
   }
   else
   {
-    tm.start();
+    // No memory compression test (default unless -m switch specified)
 
+    // Compress to JPEG format in destination file
+    tm.start();
     if (!jpge::compress_image_to_jpeg_file(pDst_filename, width, height, req_comps, pImage_data, params))
     {
        log_printf("Failed writing to output file!\n");

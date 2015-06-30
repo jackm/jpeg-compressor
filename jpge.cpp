@@ -22,17 +22,72 @@ namespace jpge {
 static inline void *jpge_malloc(size_t nSize) { return malloc(nSize); }
 static inline void jpge_free(void *p) { free(p); }
 
-// Various JPEG enums and tables.
-enum { M_SOF0 = 0xC0, M_DHT = 0xC4, M_SOI = 0xD8, M_EOI = 0xD9, M_SOS = 0xDA, M_DQT = 0xDB, M_APP0 = 0xE0 };
-enum { DC_LUM_CODES = 12, AC_LUM_CODES = 256, DC_CHROMA_CODES = 12, AC_CHROMA_CODES = 256, MAX_HUFF_SYMBOLS = 257, MAX_HUFF_CODESIZE = 32 };
+// JPEG header marker pre-defined values
+// Only need markers used for compressing
+// See https://en.wikibooks.org/wiki/JPEG_-_Idea_and_Practice/The_header_part#The_markers
+enum {
+  M_SOF0 = 0xC0,
+  M_DHT = 0xC4,
+  M_SOI = 0xD8,
+  M_EOI = 0xD9,
+  M_SOS = 0xDA,
+  M_DQT = 0xDB,
+  M_APP0 = 0xE0
+};
 
-static uint8 s_zag[64] = { 0,1,8,16,9,2,3,10,17,24,32,25,18,11,4,5,12,19,26,33,40,48,41,34,27,20,13,6,7,14,21,28,35,42,49,56,57,50,43,36,29,22,15,23,30,37,44,51,58,59,52,45,38,31,39,46,53,60,61,54,47,55,62,63 };
-static int16 s_std_lum_quant[64] = { 16,11,12,14,12,10,16,14,13,14,18,17,16,19,24,40,26,24,22,22,24,49,35,37,29,40,58,51,61,60,57,51,56,55,64,72,92,78,64,68,87,69,55,56,80,109,81,87,95,98,103,104,103,62,77,113,121,112,100,120,92,101,103,99 };
-static int16 s_std_croma_quant[64] = { 17,18,18,24,21,24,47,26,26,47,99,66,56,66,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99,99 };
+enum {
+  DC_LUM_CODES = 12,
+  AC_LUM_CODES = 256,
+  DC_CHROMA_CODES = 12,
+  AC_CHROMA_CODES = 256,
+  MAX_HUFF_SYMBOLS = 257,
+  MAX_HUFF_CODESIZE = 32
+};
+
+// Zigzag scanning order of DCT coefficient matrix (in array form)
+// See https://upload.wikimedia.org/wikipedia/commons/e/e1/Zigzag_scanning.jpg
+static uint8 s_zag[64] =
+{
+  0, 1, 8, 16, 9, 2, 3, 10,
+  17, 24, 32, 25, 18, 11, 4, 5,
+  12, 19, 26, 33, 40, 48, 41, 34,
+  27, 20, 13, 6, 7, 14, 21, 28,
+  35, 42, 49, 56, 57, 50, 43, 36,
+  29, 22, 15, 23, 30, 37, 44, 51,
+  58, 59, 52, 45, 38, 31, 39, 46,
+  53, 60, 61, 54, 47, 55, 62, 63
+};
+
+// Standard luminance quantization table
+static int16 s_std_lum_quant[64] =
+{
+  16, 11, 12, 14, 12, 10, 16, 14,
+  13, 14, 18, 17, 16, 19, 24, 40,
+  26, 24, 22, 22, 24, 49, 35, 37,
+  29, 40, 58, 51, 61, 60, 57, 51,
+  56, 55, 64, 72, 92, 78, 64, 68,
+  87, 69, 55, 56, 80, 109, 81, 87,
+  95, 98, 103, 104, 103, 62, 77, 113,
+  121, 112, 100, 120, 92, 101, 103, 99
+};
+
+// Standard chrominance quantization table
+static int16 s_std_croma_quant[64] =
+{
+  17, 18, 18, 24, 21, 24, 47, 26,
+  26, 47, 99, 66, 56, 66, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99,
+  99, 99, 99, 99, 99, 99, 99, 99
+};
+
 static uint8 s_dc_lum_bits[17] = { 0,0,1,5,1,1,1,1,1,1,0,0,0,0,0,0,0 };
 static uint8 s_dc_lum_val[DC_LUM_CODES] = { 0,1,2,3,4,5,6,7,8,9,10,11 };
 static uint8 s_ac_lum_bits[17] = { 0,0,2,1,3,3,2,4,3,5,5,4,4,0,0,1,0x7d };
-static uint8 s_ac_lum_val[AC_LUM_CODES]  =
+static uint8 s_ac_lum_val[AC_LUM_CODES] =
 {
   0x01,0x02,0x03,0x00,0x04,0x11,0x05,0x12,0x21,0x31,0x41,0x06,0x13,0x51,0x61,0x07,0x22,0x71,0x14,0x32,0x81,0x91,0xa1,0x08,0x23,0x42,0xb1,0xc1,0x15,0x52,0xd1,0xf0,
   0x24,0x33,0x62,0x72,0x82,0x09,0x0a,0x16,0x17,0x18,0x19,0x1a,0x25,0x26,0x27,0x28,0x29,0x2a,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x43,0x44,0x45,0x46,0x47,0x48,0x49,
@@ -57,9 +112,23 @@ static uint8 s_ac_chroma_val[AC_CHROMA_CODES] =
 // Low-level helper functions.
 template <class T> inline void clear_obj(T &obj) { memset(&obj, 0, sizeof(obj)); }
 
+// Colour space conversion coefficients
 const int YR = 19595, YG = 38470, YB = 7471, CB_R = -11059, CB_G = -21709, CB_B = 32768, CR_R = 32768, CR_G = -27439, CR_B = -5329;
-static inline uint8 clamp(int i) { if (static_cast<uint>(i) > 255U) { if (i < 0) i = 0; else if (i > 255) i = 255; } return static_cast<uint8>(i); }
 
+// Clamp values between 0 to 255 after colour space conversion
+static inline uint8 clamp(int i)
+{
+  if (static_cast<uint>(i) > 255U)
+  {
+    if (i < 0)
+      i = 0;
+    else if (i > 255)
+      i = 255;
+  }
+  return static_cast<uint8>(i);
+}
+
+// RGB to YCbCr
 static void RGB_to_YCC(uint8* pDst, const uint8 *pSrc, int num_pixels)
 {
   for ( ; num_pixels; pDst += 3, pSrc += 3, num_pixels--)
@@ -71,12 +140,14 @@ static void RGB_to_YCC(uint8* pDst, const uint8 *pSrc, int num_pixels)
   }
 }
 
+// RGB to luma
 static void RGB_to_Y(uint8* pDst, const uint8 *pSrc, int num_pixels)
 {
   for ( ; num_pixels; pDst++, pSrc += 3, num_pixels--)
     pDst[0] = static_cast<uint8>((pSrc[0] * YR + pSrc[1] * YG + pSrc[2] * YB + 32768) >> 16);
 }
 
+// RGBA to YCbCr
 static void RGBA_to_YCC(uint8* pDst, const uint8 *pSrc, int num_pixels)
 {
   for ( ; num_pixels; pDst += 3, pSrc += 4, num_pixels--)
@@ -88,12 +159,14 @@ static void RGBA_to_YCC(uint8* pDst, const uint8 *pSrc, int num_pixels)
   }
 }
 
+// RGBA to luma
 static void RGBA_to_Y(uint8* pDst, const uint8 *pSrc, int num_pixels)
 {
   for ( ; num_pixels; pDst++, pSrc += 4, num_pixels--)
     pDst[0] = static_cast<uint8>((pSrc[0] * YR + pSrc[1] * YG + pSrc[2] * YB + 32768) >> 16);
 }
 
+// Luma to YCbCr
 static void Y_to_YCC(uint8* pDst, const uint8* pSrc, int num_pixels)
 {
   for( ; num_pixels; pDst += 3, pSrc++, num_pixels--) { pDst[0] = pSrc[0]; pDst[1] = 128; pDst[2] = 128; }
@@ -101,6 +174,7 @@ static void Y_to_YCC(uint8* pDst, const uint8* pSrc, int num_pixels)
 
 // Forward DCT - DCT derived from jfdctint.
 enum { CONST_BITS = 13, ROW_BITS = 2 };
+
 #define DCT_DESCALE(x, n) (((x) + (((int32)1) << ((n) - 1))) >> (n))
 #define DCT_MUL(var, c) (static_cast<int16>(var) * static_cast<int32>(c))
 #define DCT1D(s0, s1, s2, s3, s4, s5, s6, s7) \
@@ -204,7 +278,7 @@ static void huffman_enforce_max_code_size(int *pNum_codes, int code_list_len, in
   }
 }
 
-// Generates an optimized offman table.
+// Generates an optimized Huffman table.
 void jpeg_encoder::optimize_huffman_table(int table_num, int table_len)
 {
   sym_freq syms0[MAX_HUFF_SYMBOLS], syms1[MAX_HUFF_SYMBOLS];
@@ -241,6 +315,7 @@ void jpeg_encoder::optimize_huffman_table(int table_num, int table_len)
 }
 
 // JPEG marker generation.
+// Emits markers/words/bytes to data stream
 void jpeg_encoder::emit_byte(uint8 i)
 {
   m_all_stream_writes_succeeded = m_all_stream_writes_succeeded && m_pStream->put_obj(i);
@@ -296,9 +371,9 @@ void jpeg_encoder::emit_sof()
   emit_byte(m_num_components);
   for (int i = 0; i < m_num_components; i++)
   {
-    emit_byte(static_cast<uint8>(i + 1));                                   /* component ID     */
+    emit_byte(static_cast<uint8>(i + 1));                   /* component ID     */
     emit_byte((m_comp_h_samp[i] << 4) + m_comp_v_samp[i]);  /* h and v sampling */
-    emit_byte(i > 0);                                   /* quant. table num */
+    emit_byte(i > 0);                                       /* quant. table num */
   }
 }
 
@@ -324,12 +399,12 @@ void jpeg_encoder::emit_dht(uint8 *bits, uint8 *val, int index, bool ac_flag)
 // Emit all Huffman tables.
 void jpeg_encoder::emit_dhts()
 {
-  emit_dht(m_huff_bits[0+0], m_huff_val[0+0], 0, false);
-  emit_dht(m_huff_bits[2+0], m_huff_val[2+0], 0, true);
+  emit_dht(m_huff_bits[0+0], m_huff_val[0+0], 0, false);  /* DC luma */
+  emit_dht(m_huff_bits[2+0], m_huff_val[2+0], 0, true);   /* AC luma */
   if (m_num_components == 3)
   {
-    emit_dht(m_huff_bits[0+1], m_huff_val[0+1], 1, false);
-    emit_dht(m_huff_bits[2+1], m_huff_val[2+1], 1, true);
+    emit_dht(m_huff_bits[0+1], m_huff_val[0+1], 1, false);  /* DC chroma */
+    emit_dht(m_huff_bits[2+1], m_huff_val[2+1], 1, true);   /* AC chroma */
   }
 }
 
@@ -436,9 +511,12 @@ bool jpeg_encoder::second_pass_init()
   return true;
 }
 
+// Open JPEG destination and setup marker info
 bool jpeg_encoder::jpg_open(int p_x_res, int p_y_res, int src_channels)
 {
   m_num_components = 3;
+
+  // Determine subsampling parameter
   switch (m_params.m_subsampling)
   {
     case Y_ONLY:
@@ -809,18 +887,24 @@ void jpeg_encoder::load_mcu(const void *pSrc)
 
   if (m_num_components == 1)
   {
+    // Greyscale (luma only)
     if (m_image_bpp == 4)
+      // Four source channels (alpha included)
       RGBA_to_Y(pDst, Psrc, m_image_x);
     else if (m_image_bpp == 3)
+      // Three source channels (no alpha)
       RGB_to_Y(pDst, Psrc, m_image_x);
     else
       memcpy(pDst, Psrc, m_image_x);
   }
   else
   {
+    // Full colour (luma and chroma)
     if (m_image_bpp == 4)
+      // Four source channels (alpha included)
       RGBA_to_YCC(pDst, Psrc, m_image_x);
     else if (m_image_bpp == 3)
+      // Three source channels (no alpha)
       RGB_to_YCC(pDst, Psrc, m_image_x);
     else
       Y_to_YCC(pDst, Psrc, m_image_x);
@@ -846,6 +930,7 @@ void jpeg_encoder::load_mcu(const void *pSrc)
   }
 }
 
+// Reset various member variables and flags
 void jpeg_encoder::clear()
 {
   m_mcu_lines[0] = NULL;
@@ -853,16 +938,19 @@ void jpeg_encoder::clear()
   m_all_stream_writes_succeeded = true;
 }
 
+// Constructor
 jpeg_encoder::jpeg_encoder()
 {
   clear();
 }
 
+// Destructor
 jpeg_encoder::~jpeg_encoder()
 {
   deinit();
 }
 
+// Initialize output stream and do preliminary param sanity check
 bool jpeg_encoder::init(output_stream *pStream, int width, int height, int src_channels, const params &comp_params)
 {
   deinit();
@@ -898,6 +986,7 @@ bool jpeg_encoder::process_scanline(const void* pScanline)
 // Higher level wrappers/examples (optional).
 #include <stdio.h>
 
+// File stream class
 class cfile_stream : public output_stream
 {
    cfile_stream(const cfile_stream &);
@@ -975,6 +1064,7 @@ bool compress_image_to_jpeg_file(const char *pFilename, int width, int height, i
   return dst_stream.close();
 }
 
+// Memory buffer stream class
 class memory_stream : public output_stream
 {
    memory_stream(const memory_stream &);
@@ -1004,6 +1094,7 @@ public:
    }
 };
 
+// Writes JPEG image to memory buffer
 bool compress_image_to_jpeg_file_in_memory(void *pDstBuf, int &buf_size, int width, int height, int num_channels, const uint8 *pImage_data, const params &comp_params)
 {
    if ((!pDstBuf) || (!buf_size))
