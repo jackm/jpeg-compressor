@@ -140,7 +140,7 @@ static void RGB_to_YCC(uint8* pDst, const uint8 *pSrc, int num_pixels)
   }
 }
 
-// RGB to luma
+// RGB to grayscale
 static void RGB_to_Y(uint8* pDst, const uint8 *pSrc, int num_pixels)
 {
   for ( ; num_pixels; pDst++, pSrc += 3, num_pixels--)
@@ -159,14 +159,14 @@ static void RGBA_to_YCC(uint8* pDst, const uint8 *pSrc, int num_pixels)
   }
 }
 
-// RGBA to luma
+// RGBA to grayscale
 static void RGBA_to_Y(uint8* pDst, const uint8 *pSrc, int num_pixels)
 {
   for ( ; num_pixels; pDst++, pSrc += 4, num_pixels--)
     pDst[0] = static_cast<uint8>((pSrc[0] * YR + pSrc[1] * YG + pSrc[2] * YB + 32768) >> 16);
 }
 
-// Luma to YCbCr
+// Grayscale to YCbCr
 static void Y_to_YCC(uint8* pDst, const uint8* pSrc, int num_pixels)
 {
   for( ; num_pixels; pDst += 3, pSrc++, num_pixels--) { pDst[0] = pSrc[0]; pDst[1] = 128; pDst[2] = 128; }
@@ -193,6 +193,8 @@ enum { CONST_BITS = 13, ROW_BITS = 2 };
   u3 += z5; u4 += z5; \
   s0 = t10 + t11; s1 = t7 + u1 + u4; s3 = t6 + u2 + u3; s4 = t10 - t11; s5 = t5 + u2 + u4; s7 = t4 + u1 + u3;
 
+// 2D DCT performed by doing 1D DCT on each row followed by 1D DCT on each column.
+// Derived from jfdctint.
 static void DCT2D(int32 *p)
 {
   int32 c, *q = p;
@@ -315,7 +317,7 @@ void jpeg_encoder::optimize_huffman_table(int table_num, int table_len)
 }
 
 // JPEG marker generation.
-// Emits markers/words/bytes to data stream
+// Emits markers/words/bytes to data stream.
 void jpeg_encoder::emit_byte(uint8 i)
 {
   m_all_stream_writes_succeeded = m_all_stream_writes_succeeded && m_pStream->put_obj(i);
@@ -331,7 +333,7 @@ void jpeg_encoder::emit_marker(int marker)
   emit_byte(uint8(0xFF)); emit_byte(uint8(marker));
 }
 
-// Emit JFIF marker
+// Emit JFIF marker.
 void jpeg_encoder::emit_jfif_app0()
 {
   emit_marker(M_APP0);
@@ -347,7 +349,7 @@ void jpeg_encoder::emit_jfif_app0()
   emit_byte(0);
 }
 
-// Emit quantization tables
+// Emit quantization tables.
 void jpeg_encoder::emit_dqt()
 {
   for (int i = 0; i < ((m_num_components == 3) ? 2 : 1); i++)
@@ -360,7 +362,7 @@ void jpeg_encoder::emit_dqt()
   }
 }
 
-// Emit start of frame marker
+// Emit start of frame marker.
 void jpeg_encoder::emit_sof()
 {
   emit_marker(M_SOF0);                           /* baseline */
@@ -408,7 +410,7 @@ void jpeg_encoder::emit_dhts()
   }
 }
 
-// emit start of scan
+// Emit start of scan.
 void jpeg_encoder::emit_sos()
 {
   emit_marker(M_SOS);
@@ -473,6 +475,7 @@ void jpeg_encoder::compute_huffman_table(uint *codes, uint8 *code_sizes, uint8 *
 }
 
 // Quantization table generation.
+// Transform given quantization table depending on quality factor.
 void jpeg_encoder::compute_quant_table(int32 *pDst, int16 *pSrc)
 {
   int32 q;
@@ -511,7 +514,7 @@ bool jpeg_encoder::second_pass_init()
   return true;
 }
 
-// Open JPEG destination and setup marker info
+// Open JPEG destination and setup marker info.
 bool jpeg_encoder::jpg_open(int p_x_res, int p_y_res, int src_channels)
 {
   m_num_components = 3;
@@ -653,17 +656,23 @@ void jpeg_encoder::load_quantized_coefficients(int component_num)
   for (int i = 0; i < 64; i++)
   {
     sample_array_t j = m_sample_array[s_zag[i]];
+    // Populate coefficient array using the following criteria:
+    // If coefficient plus half of quantization factor
+    // less than quantization factor, round to zero.
+    // Otherwise, divide coefficient by quantization factor.
     if (j < 0)
     {
+      // Negative coefficients.
       if ((j = -j + (*q >> 1)) < *q)
-        *pDst++ = 0;
+        *pDst++ = 0;  /* Round to zero */
       else
         *pDst++ = static_cast<int16>(-(j / *q));
     }
     else
     {
+      // Positive coefficients.
       if ((j = j + (*q >> 1)) < *q)
-        *pDst++ = 0;
+        *pDst++ = 0;  /* Round to zero */
       else
         *pDst++ = static_cast<int16>((j / *q));
     }
@@ -887,7 +896,7 @@ void jpeg_encoder::load_mcu(const void *pSrc)
 
   if (m_num_components == 1)
   {
-    // Greyscale (luma only)
+    // Grayscale (luma only)
     if (m_image_bpp == 4)
       // Four source channels (alpha included)
       RGBA_to_Y(pDst, Psrc, m_image_x);

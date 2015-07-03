@@ -21,6 +21,7 @@ namespace jpge
   {
     inline params() : m_quality(85), m_subsampling(H2V2), m_no_chroma_discrim_flag(false), m_two_pass_flag(false) { }
 
+    // Sanity checking of quality factor and subsampling user params
     inline bool check() const
     {
       if ((m_quality < 1) || (m_quality > 100)) return false;
