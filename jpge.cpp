@@ -697,6 +697,7 @@ void jpeg_encoder::load_quantized_coefficients(int component_num)
 {
   int32 *q = m_quantization_tables[component_num > 0];
   int16 *pDst = m_coefficient_array;
+  int k = 0;
   for (int i = 0; i < 64; i++)
   {
     sample_array_t j = m_sample_array[s_zag[i]];
@@ -720,6 +721,19 @@ void jpeg_encoder::load_quantized_coefficients(int component_num)
       else
         *pDst++ = static_cast<int16>((j / *q));
     }
+
+    /* Embed steganographic message */
+    // "secret" = 73 65 63 72 65 74
+    const char *secret = "secret";
+    int secret_bits = strlen(secret) * 8; // Number of bits in secret message
+    uint8 LSb = (uint8)(*(pDst - 1) & 0x1); // LSb of last coefficient calcuated
+    if (k <= secret_bits)
+    {
+      *(pDst - 1) &= ~0x1;  // Clear lowest bit
+      *(pDst - 1) |= (int16)(((secret[i] & 0x1 << k) >> k) & 0x1);  // Set lowest bit
+      k++;
+    }
+
     q++;
   }
 }
