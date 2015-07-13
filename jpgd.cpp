@@ -1055,30 +1055,32 @@ void jpeg_decoder::read_dqt_marker()
   uint num_left;
   uint temp;
 
-  num_left = get_bits(16);
+  num_left = get_bits(16);  // Length of quantization table (2 bytes)
 
   if (num_left < 2)
     stop_decoding(JPGD_BAD_DQT_MARKER);
 
-  num_left -= 2;
+  num_left -= 2;  // Subtract off 2 bytes to account for the table length bytes itself
 
   while (num_left)
   {
-    n = get_bits(8);
-    prec = n >> 4;
-    n &= 0x0F;
+    n = get_bits(8);  // Quantization table info (1 byte)
+    prec = n >> 4;    // Bits 4..7: Quantization table precision, 0 = 8 bit, otherwise 16 bit
+    n &= 0x0F;        // Bits 0..3: Quantization table ID
 
+    // There is a maximum of 4 tables, anything else is an error (table ID value of 0 to 3)
     if (n >= JPGD_MAX_QUANT_TABLES)
       stop_decoding(JPGD_BAD_DQT_TABLE);
 
     if (!m_quant[n])
       m_quant[n] = (jpgd_quant_t *)alloc(64 * sizeof(jpgd_quant_t));
 
-    // read quantization entries, in zag order
+    // Read quantization entries, in zag order
     for (i = 0; i < 64; i++)
     {
       temp = get_bits(8);
 
+      // Append on another byte if using 16 bit precision
       if (prec)
         temp = (temp << 8) + get_bits(8);
 
@@ -1090,6 +1092,7 @@ void jpeg_decoder::read_dqt_marker()
     if (prec)
       i += 64;
 
+    // Error if the actual bumber of bytes in the table was more than the stated length
     if (num_left < (uint)i)
       stop_decoding(JPGD_BAD_DQT_LENGTH);
 

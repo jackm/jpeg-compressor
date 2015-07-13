@@ -111,9 +111,9 @@ namespace jpge
     int m_mcu_x, m_mcu_y;
     uint8 *m_mcu_lines[16];
     uint8 m_mcu_y_ofs;
-    sample_array_t m_sample_array[64];
-    int16 m_coefficient_array[64];
-    int32 m_quantization_tables[2][64];
+    sample_array_t m_sample_array[64];  /* Populated by load_block_* functions */
+    int16 m_coefficient_array[64];      /* DCT coefficients */
+    int32 m_quantization_tables[2][64]; /* Quantization table per colour channel */
     uint m_huff_codes[4][256];
     uint8 m_huff_code_sizes[4][256];
     uint8 m_huff_bits[4][17];

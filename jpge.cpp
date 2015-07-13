@@ -186,12 +186,21 @@ enum { CONST_BITS = 13, ROW_BITS = 2 };
   u1 = t4 + t7; \
   int32 u2 = t5 + t6, u3 = t4 + t6, u4 = t5 + t7; \
   int32 z5 = DCT_MUL(u3 + u4, 9633); \
-  t4 = DCT_MUL(t4, 2446); t5 = DCT_MUL(t5, 16819); \
-  t6 = DCT_MUL(t6, 25172); t7 = DCT_MUL(t7, 12299); \
-  u1 = DCT_MUL(u1, -7373); u2 = DCT_MUL(u2, -20995); \
-  u3 = DCT_MUL(u3, -16069); u4 = DCT_MUL(u4, -3196); \
+  t4 = DCT_MUL(t4, 2446); \
+  t5 = DCT_MUL(t5, 16819); \
+  t6 = DCT_MUL(t6, 25172); \
+  t7 = DCT_MUL(t7, 12299); \
+  u1 = DCT_MUL(u1, -7373); \
+  u2 = DCT_MUL(u2, -20995); \
+  u3 = DCT_MUL(u3, -16069); \
+  u4 = DCT_MUL(u4, -3196); \
   u3 += z5; u4 += z5; \
-  s0 = t10 + t11; s1 = t7 + u1 + u4; s3 = t6 + u2 + u3; s4 = t10 - t11; s5 = t5 + u2 + u4; s7 = t4 + u1 + u3;
+  s0 = t10 + t11; \
+  s1 = t7 + u1 + u4; \
+  s3 = t6 + u2 + u3; \
+  s4 = t10 - t11; \
+  s5 = t5 + u2 + u4; \
+  s7 = t4 + u1 + u3;
 
 // 2D DCT performed by doing 1D DCT on each row followed by 1D DCT on each column.
 // Derived from jfdctint.
@@ -202,15 +211,27 @@ static void DCT2D(int32 *p)
   {
     int32 s0 = q[0], s1 = q[1], s2 = q[2], s3 = q[3], s4 = q[4], s5 = q[5], s6 = q[6], s7 = q[7];
     DCT1D(s0, s1, s2, s3, s4, s5, s6, s7);
-    q[0] = s0 << ROW_BITS; q[1] = DCT_DESCALE(s1, CONST_BITS-ROW_BITS); q[2] = DCT_DESCALE(s2, CONST_BITS-ROW_BITS); q[3] = DCT_DESCALE(s3, CONST_BITS-ROW_BITS);
-    q[4] = s4 << ROW_BITS; q[5] = DCT_DESCALE(s5, CONST_BITS-ROW_BITS); q[6] = DCT_DESCALE(s6, CONST_BITS-ROW_BITS); q[7] = DCT_DESCALE(s7, CONST_BITS-ROW_BITS);
+    q[0] = s0 << ROW_BITS;
+    q[1] = DCT_DESCALE(s1, CONST_BITS-ROW_BITS);
+    q[2] = DCT_DESCALE(s2, CONST_BITS-ROW_BITS);
+    q[3] = DCT_DESCALE(s3, CONST_BITS-ROW_BITS);
+    q[4] = s4 << ROW_BITS;
+    q[5] = DCT_DESCALE(s5, CONST_BITS-ROW_BITS);
+    q[6] = DCT_DESCALE(s6, CONST_BITS-ROW_BITS);
+    q[7] = DCT_DESCALE(s7, CONST_BITS-ROW_BITS);
   }
   for (q = p, c = 7; c >= 0; c--, q++)
   {
     int32 s0 = q[0*8], s1 = q[1*8], s2 = q[2*8], s3 = q[3*8], s4 = q[4*8], s5 = q[5*8], s6 = q[6*8], s7 = q[7*8];
     DCT1D(s0, s1, s2, s3, s4, s5, s6, s7);
-    q[0*8] = DCT_DESCALE(s0, ROW_BITS+3); q[1*8] = DCT_DESCALE(s1, CONST_BITS+ROW_BITS+3); q[2*8] = DCT_DESCALE(s2, CONST_BITS+ROW_BITS+3); q[3*8] = DCT_DESCALE(s3, CONST_BITS+ROW_BITS+3);
-    q[4*8] = DCT_DESCALE(s4, ROW_BITS+3); q[5*8] = DCT_DESCALE(s5, CONST_BITS+ROW_BITS+3); q[6*8] = DCT_DESCALE(s6, CONST_BITS+ROW_BITS+3); q[7*8] = DCT_DESCALE(s7, CONST_BITS+ROW_BITS+3);
+    q[0*8] = DCT_DESCALE(s0, ROW_BITS+3);
+    q[1*8] = DCT_DESCALE(s1, CONST_BITS+ROW_BITS+3);
+    q[2*8] = DCT_DESCALE(s2, CONST_BITS+ROW_BITS+3);
+    q[3*8] = DCT_DESCALE(s3, CONST_BITS+ROW_BITS+3);
+    q[4*8] = DCT_DESCALE(s4, ROW_BITS+3);
+    q[5*8] = DCT_DESCALE(s5, CONST_BITS+ROW_BITS+3);
+    q[6*8] = DCT_DESCALE(s6, CONST_BITS+ROW_BITS+3);
+    q[7*8] = DCT_DESCALE(s7, CONST_BITS+ROW_BITS+3);
   }
 }
 
@@ -355,8 +376,8 @@ void jpeg_encoder::emit_dqt()
   for (int i = 0; i < ((m_num_components == 3) ? 2 : 1); i++)
   {
     emit_marker(M_DQT);
-    emit_word(64 + 1 + 2);
-    emit_byte(static_cast<uint8>(i));
+    emit_word(64 + 1 + 2);  // Length of quantization table in bytes
+    emit_byte(static_cast<uint8>(i)); // Quanization table info byte
     for (int j = 0; j < 64; j++)
       emit_byte(static_cast<uint8>(m_quantization_tables[i][j]));
   }
@@ -597,8 +618,14 @@ void jpeg_encoder::load_block_8_8_grey(int x)
   for (int i = 0; i < 8; i++, pDst += 8)
   {
     pSrc = m_mcu_lines[i] + x;
-    pDst[0] = pSrc[0] - 128; pDst[1] = pSrc[1] - 128; pDst[2] = pSrc[2] - 128; pDst[3] = pSrc[3] - 128;
-    pDst[4] = pSrc[4] - 128; pDst[5] = pSrc[5] - 128; pDst[6] = pSrc[6] - 128; pDst[7] = pSrc[7] - 128;
+    pDst[0] = pSrc[0] - 128;
+    pDst[1] = pSrc[1] - 128;
+    pDst[2] = pSrc[2] - 128;
+    pDst[3] = pSrc[3] - 128;
+    pDst[4] = pSrc[4] - 128;
+    pDst[5] = pSrc[5] - 128;
+    pDst[6] = pSrc[6] - 128;
+    pDst[7] = pSrc[7] - 128;
   }
 }
 
@@ -611,8 +638,14 @@ void jpeg_encoder::load_block_8_8(int x, int y, int c)
   for (int i = 0; i < 8; i++, pDst += 8)
   {
     pSrc = m_mcu_lines[y + i] + x;
-    pDst[0] = pSrc[0 * 3] - 128; pDst[1] = pSrc[1 * 3] - 128; pDst[2] = pSrc[2 * 3] - 128; pDst[3] = pSrc[3 * 3] - 128;
-    pDst[4] = pSrc[4 * 3] - 128; pDst[5] = pSrc[5 * 3] - 128; pDst[6] = pSrc[6 * 3] - 128; pDst[7] = pSrc[7 * 3] - 128;
+    pDst[0] = pSrc[0 * 3] - 128;
+    pDst[1] = pSrc[1 * 3] - 128;
+    pDst[2] = pSrc[2 * 3] - 128;
+    pDst[3] = pSrc[3 * 3] - 128;
+    pDst[4] = pSrc[4 * 3] - 128;
+    pDst[5] = pSrc[5 * 3] - 128;
+    pDst[6] = pSrc[6 * 3] - 128;
+    pDst[7] = pSrc[7 * 3] - 128;
   }
 }
 
@@ -626,10 +659,16 @@ void jpeg_encoder::load_block_16_8(int x, int c)
   {
     pSrc1 = m_mcu_lines[i + 0] + x;
     pSrc2 = m_mcu_lines[i + 1] + x;
-    pDst[0] = ((pSrc1[ 0 * 3] + pSrc1[ 1 * 3] + pSrc2[ 0 * 3] + pSrc2[ 1 * 3] + a) >> 2) - 128; pDst[1] = ((pSrc1[ 2 * 3] + pSrc1[ 3 * 3] + pSrc2[ 2 * 3] + pSrc2[ 3 * 3] + b) >> 2) - 128;
-    pDst[2] = ((pSrc1[ 4 * 3] + pSrc1[ 5 * 3] + pSrc2[ 4 * 3] + pSrc2[ 5 * 3] + a) >> 2) - 128; pDst[3] = ((pSrc1[ 6 * 3] + pSrc1[ 7 * 3] + pSrc2[ 6 * 3] + pSrc2[ 7 * 3] + b) >> 2) - 128;
-    pDst[4] = ((pSrc1[ 8 * 3] + pSrc1[ 9 * 3] + pSrc2[ 8 * 3] + pSrc2[ 9 * 3] + a) >> 2) - 128; pDst[5] = ((pSrc1[10 * 3] + pSrc1[11 * 3] + pSrc2[10 * 3] + pSrc2[11 * 3] + b) >> 2) - 128;
-    pDst[6] = ((pSrc1[12 * 3] + pSrc1[13 * 3] + pSrc2[12 * 3] + pSrc2[13 * 3] + a) >> 2) - 128; pDst[7] = ((pSrc1[14 * 3] + pSrc1[15 * 3] + pSrc2[14 * 3] + pSrc2[15 * 3] + b) >> 2) - 128;
+    pDst[0] = ((pSrc1[ 0 * 3] + pSrc1[ 1 * 3] + pSrc2[ 0 * 3] + pSrc2[ 1 * 3] + a) >> 2) - 128;
+    pDst[1] = ((pSrc1[ 2 * 3] + pSrc1[ 3 * 3] + pSrc2[ 2 * 3] + pSrc2[ 3 * 3] + b) >> 2) - 128;
+    pDst[2] = ((pSrc1[ 4 * 3] + pSrc1[ 5 * 3] + pSrc2[ 4 * 3] + pSrc2[ 5 * 3] + a) >> 2) - 128;
+    pDst[3] = ((pSrc1[ 6 * 3] + pSrc1[ 7 * 3] + pSrc2[ 6 * 3] + pSrc2[ 7 * 3] + b) >> 2) - 128;
+    pDst[4] = ((pSrc1[ 8 * 3] + pSrc1[ 9 * 3] + pSrc2[ 8 * 3] + pSrc2[ 9 * 3] + a) >> 2) - 128;
+    pDst[5] = ((pSrc1[10 * 3] + pSrc1[11 * 3] + pSrc2[10 * 3] + pSrc2[11 * 3] + b) >> 2) - 128;
+    pDst[6] = ((pSrc1[12 * 3] + pSrc1[13 * 3] + pSrc2[12 * 3] + pSrc2[13 * 3] + a) >> 2) - 128;
+    pDst[7] = ((pSrc1[14 * 3] + pSrc1[15 * 3] + pSrc2[14 * 3] + pSrc2[15 * 3] + b) >> 2) - 128;
+    
+    // Swap a and b
     int temp = a; a = b; b = temp;
   }
 }
@@ -642,13 +681,18 @@ void jpeg_encoder::load_block_16_8_8(int x, int c)
   for (int i = 0; i < 8; i++, pDst += 8)
   {
     pSrc1 = m_mcu_lines[i + 0] + x;
-    pDst[0] = ((pSrc1[ 0 * 3] + pSrc1[ 1 * 3]) >> 1) - 128; pDst[1] = ((pSrc1[ 2 * 3] + pSrc1[ 3 * 3]) >> 1) - 128;
-    pDst[2] = ((pSrc1[ 4 * 3] + pSrc1[ 5 * 3]) >> 1) - 128; pDst[3] = ((pSrc1[ 6 * 3] + pSrc1[ 7 * 3]) >> 1) - 128;
-    pDst[4] = ((pSrc1[ 8 * 3] + pSrc1[ 9 * 3]) >> 1) - 128; pDst[5] = ((pSrc1[10 * 3] + pSrc1[11 * 3]) >> 1) - 128;
-    pDst[6] = ((pSrc1[12 * 3] + pSrc1[13 * 3]) >> 1) - 128; pDst[7] = ((pSrc1[14 * 3] + pSrc1[15 * 3]) >> 1) - 128;
+    pDst[0] = ((pSrc1[ 0 * 3] + pSrc1[ 1 * 3]) >> 1) - 128;
+    pDst[1] = ((pSrc1[ 2 * 3] + pSrc1[ 3 * 3]) >> 1) - 128;
+    pDst[2] = ((pSrc1[ 4 * 3] + pSrc1[ 5 * 3]) >> 1) - 128;
+    pDst[3] = ((pSrc1[ 6 * 3] + pSrc1[ 7 * 3]) >> 1) - 128;
+    pDst[4] = ((pSrc1[ 8 * 3] + pSrc1[ 9 * 3]) >> 1) - 128;
+    pDst[5] = ((pSrc1[10 * 3] + pSrc1[11 * 3]) >> 1) - 128;
+    pDst[6] = ((pSrc1[12 * 3] + pSrc1[13 * 3]) >> 1) - 128;
+    pDst[7] = ((pSrc1[14 * 3] + pSrc1[15 * 3]) >> 1) - 128;
   }
 }
 
+// Transform coefficients based on quantization factor
 void jpeg_encoder::load_quantized_coefficients(int component_num)
 {
   int32 *q = m_quantization_tables[component_num > 0];
@@ -706,24 +750,28 @@ void jpeg_encoder::code_coefficients_pass_one(int component_num)
 {
   if (component_num >= 3) return; // just to shut up static analysis
   int i, run_len, nbits, temp1;
-  int16 *src = m_coefficient_array;
-  uint32 *dc_count = component_num ? m_huff_count[0 + 1] : m_huff_count[0 + 0], *ac_count = component_num ? m_huff_count[2 + 1] : m_huff_count[2 + 0];
+  int16 *pSrc = m_coefficient_array;
+  uint32 *dc_count = component_num ? m_huff_count[0 + 1] : m_huff_count[0 + 0];
+  uint32 *ac_count = component_num ? m_huff_count[2 + 1] : m_huff_count[2 + 0];
 
-  temp1 = src[0] - m_last_dc_val[component_num];
-  m_last_dc_val[component_num] = src[0];
+  temp1 = pSrc[0] - m_last_dc_val[component_num];
+  m_last_dc_val[component_num] = pSrc[0];
   if (temp1 < 0) temp1 = -temp1;
 
   nbits = 0;
   while (temp1)
   {
-    nbits++; temp1 >>= 1;
+    nbits++;
+    temp1 >>= 1;
   }
 
   dc_count[nbits]++;
   for (run_len = 0, i = 1; i < 64; i++)
   {
     if ((temp1 = m_coefficient_array[i]) == 0)
+    {
       run_len++;
+    }
     else
     {
       while (run_len >= 16)
@@ -731,7 +779,7 @@ void jpeg_encoder::code_coefficients_pass_one(int component_num)
         ac_count[0xF0]++;
         run_len -= 16;
       }
-      if (temp1 < 0) temp1 = -temp1;
+      if (temp1 < 0) temp1 = -temp1;  // Absolute value
       nbits = 1;
       while (temp1 >>= 1) nbits++;
       ac_count[(run_len << 4) + nbits]++;
@@ -750,13 +798,17 @@ void jpeg_encoder::code_coefficients_pass_two(int component_num)
 
   if (component_num == 0)
   {
-    codes[0] = m_huff_codes[0 + 0]; codes[1] = m_huff_codes[2 + 0];
-    code_sizes[0] = m_huff_code_sizes[0 + 0]; code_sizes[1] = m_huff_code_sizes[2 + 0];
+    codes[0] = m_huff_codes[0 + 0];
+    codes[1] = m_huff_codes[2 + 0];
+    code_sizes[0] = m_huff_code_sizes[0 + 0];
+    code_sizes[1] = m_huff_code_sizes[2 + 0];
   }
   else
   {
-    codes[0] = m_huff_codes[0 + 1]; codes[1] = m_huff_codes[2 + 1];
-    code_sizes[0] = m_huff_code_sizes[0 + 1]; code_sizes[1] = m_huff_code_sizes[2 + 1];
+    codes[0] = m_huff_codes[0 + 1];
+    codes[1] = m_huff_codes[2 + 1];
+    code_sizes[0] = m_huff_code_sizes[0 + 1];
+    code_sizes[1] = m_huff_code_sizes[2 + 1];
   }
 
   temp1 = temp2 = pSrc[0] - m_last_dc_val[component_num];
@@ -807,7 +859,7 @@ void jpeg_encoder::code_coefficients_pass_two(int component_num)
 
 void jpeg_encoder::code_block(int component_num)
 {
-  DCT2D(m_sample_array);
+  DCT2D(m_sample_array);  // Perform forward DCT
   load_quantized_coefficients(component_num);
   if (m_pass_num == 1)
     code_coefficients_pass_one(component_num);
@@ -828,24 +880,31 @@ void jpeg_encoder::process_mcu_row()
   {
     for (int i = 0; i < m_mcus_per_row; i++)
     {
-      load_block_8_8(i, 0, 0); code_block(0); load_block_8_8(i, 0, 1); code_block(1); load_block_8_8(i, 0, 2); code_block(2);
+      load_block_8_8(i, 0, 0); code_block(0);
+      load_block_8_8(i, 0, 1); code_block(1);
+      load_block_8_8(i, 0, 2); code_block(2);
     }
   }
   else if ((m_comp_h_samp[0] == 2) && (m_comp_v_samp[0] == 1))
   {
     for (int i = 0; i < m_mcus_per_row; i++)
     {
-      load_block_8_8(i * 2 + 0, 0, 0); code_block(0); load_block_8_8(i * 2 + 1, 0, 0); code_block(0);
-      load_block_16_8_8(i, 1); code_block(1); load_block_16_8_8(i, 2); code_block(2);
+      load_block_8_8(i * 2 + 0, 0, 0); code_block(0);
+      load_block_8_8(i * 2 + 1, 0, 0); code_block(0);
+      load_block_16_8_8(i, 1); code_block(1);
+      load_block_16_8_8(i, 2); code_block(2);
     }
   }
   else if ((m_comp_h_samp[0] == 2) && (m_comp_v_samp[0] == 2))
   {
     for (int i = 0; i < m_mcus_per_row; i++)
     {
-      load_block_8_8(i * 2 + 0, 0, 0); code_block(0); load_block_8_8(i * 2 + 1, 0, 0); code_block(0);
-      load_block_8_8(i * 2 + 0, 1, 0); code_block(0); load_block_8_8(i * 2 + 1, 1, 0); code_block(0);
-      load_block_16_8(i, 1); code_block(1); load_block_16_8(i, 2); code_block(2);
+      load_block_8_8(i * 2 + 0, 0, 0); code_block(0);
+      load_block_8_8(i * 2 + 1, 0, 0); code_block(0);
+      load_block_8_8(i * 2 + 0, 1, 0); code_block(0);
+      load_block_8_8(i * 2 + 1, 1, 0); code_block(0);
+      load_block_16_8(i, 1); code_block(1);
+      load_block_16_8(i, 2); code_block(2);
     }
   }
 }
@@ -991,6 +1050,7 @@ bool jpeg_encoder::process_scanline(const void* pScanline)
   }
   return m_all_stream_writes_succeeded;
 }
+
 
 // Higher level wrappers/examples (optional).
 #include <stdio.h>
