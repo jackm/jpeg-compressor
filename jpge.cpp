@@ -922,18 +922,20 @@ void jpeg_encoder::process_mcu_row()
     }
   }
   else if ((m_comp_h_samp[0] == 1) && (m_comp_v_samp[0] == 1))
-  { // H1V1 subsampling
+  { // H1V1 subsampling (4:4:4)
     for (int i = 0; i < m_mcus_per_row; i++)
     {
+      // YCbCr encoded
       load_block_8_8(i, 0, 0); code_block(0);
       load_block_8_8(i, 0, 1); code_block(1);
       load_block_8_8(i, 0, 2); code_block(2);
     }
   }
   else if ((m_comp_h_samp[0] == 2) && (m_comp_v_samp[0] == 1))
-  { // H2V1 subsampling
+  { // H2V1 subsampling (4:2:2)
     for (int i = 0; i < m_mcus_per_row; i++)
     {
+      // YYCbCr encoded
       load_block_8_8(i * 2 + 0, 0, 0); code_block(0);
       load_block_8_8(i * 2 + 1, 0, 0); code_block(0);
       load_block_16_8_8(i, 1); code_block(1);
@@ -941,9 +943,10 @@ void jpeg_encoder::process_mcu_row()
     }
   }
   else if ((m_comp_h_samp[0] == 2) && (m_comp_v_samp[0] == 2))
-  { // H2V2 subsampling
+  { // H2V2 subsampling (4:2:0)
     for (int i = 0; i < m_mcus_per_row; i++)
     {
+      // YYYYCbCr encoded
       load_block_8_8(i * 2 + 0, 0, 0); code_block(0);
       load_block_8_8(i * 2 + 1, 0, 0); code_block(0);
       load_block_8_8(i * 2 + 0, 1, 0); code_block(0);
@@ -975,6 +978,7 @@ bool jpeg_encoder::terminate_pass_two()
 
 bool jpeg_encoder::process_end_of_image()
 {
+  // Check if there is still a pixel offset relative to MCU alignment
   if (m_mcu_y_ofs)
   {
     if (m_mcu_y_ofs < 16) // check here just to shut up static analysis
