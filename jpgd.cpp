@@ -1832,11 +1832,11 @@ void jpeg_decoder::decode_next_row()
     if ((m_restart_interval) && (m_restarts_left == 0))
       process_restart();
 
-    jpgd_block_t* p = m_pMCU_coefficients;
+    jpgd_block_t *p = m_pMCU_coefficients;
     for (int mcu_block = 0; mcu_block < m_blocks_per_mcu; mcu_block++, p += 64)
     {
       int component_id = m_mcu_org[mcu_block];
-      jpgd_quant_t* q = m_quant[m_comp_quant[component_id]];
+      jpgd_quant_t *q = m_quant[m_comp_quant[component_id]];
 
       int r, s;
       s = huff_decode(m_pHuff_tabs[m_comp_dc_tab[component_id]], r);
