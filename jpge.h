@@ -101,16 +101,18 @@ namespace jpge
     typedef int32 sample_array_t;
         
     output_stream *m_pStream; /* Main output data stream */
-    params m_params;
+    params m_params;          /* Input parameters */
     uint8 m_num_components;   /* 1 = grayscale (luma only), 3 = full YCbCr (luma and chroma) */
     uint8 m_comp_h_samp[3], m_comp_v_samp[3];
-    int m_image_x, m_image_y, m_image_bpp, m_image_bpl;
-    int m_image_x_mcu, m_image_y_mcu;
+    int m_image_x, m_image_y; /* Image pixel size */
+    int m_image_bpp;          /* Bytes per pixel */
+    int m_image_bpl;          /* Bytes per line */
+    int m_image_x_mcu, m_image_y_mcu; /* Image pixel size aligned to MCU size */
     int m_image_bpl_xlt, m_image_bpl_mcu;
     int m_mcus_per_row;
-    int m_mcu_x, m_mcu_y;
+    int m_mcu_x, m_mcu_y;     /* MCU pixel size */
     uint8 *m_mcu_lines[16];
-    uint8 m_mcu_y_ofs;
+    uint8 m_mcu_y_ofs;        /* MCU line offset */
     sample_array_t m_sample_array[64];  /* Populated by load_block_* functions */
     int16 m_coefficient_array[64];      /* DCT coefficients */
     int32 m_quantization_tables[2][64]; /* Quantization table per colour channel */
@@ -127,7 +129,7 @@ namespace jpge
     uint32 m_bit_buffer;
     uint m_bits_in;
     uint8 m_pass_num;
-    bool m_all_stream_writes_succeeded;
+    bool m_all_stream_writes_succeeded; /* Flag showing if all most recent data stream writes suceeded */
         
     void optimize_huffman_table(int table_num, int table_len);
     void emit_byte(uint8 i);

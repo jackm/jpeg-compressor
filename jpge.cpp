@@ -169,7 +169,12 @@ static void RGBA_to_Y(uint8* pDst, const uint8 *pSrc, int num_pixels)
 // Grayscale to YCbCr
 static void Y_to_YCC(uint8* pDst, const uint8* pSrc, int num_pixels)
 {
-  for( ; num_pixels; pDst += 3, pSrc++, num_pixels--) { pDst[0] = pSrc[0]; pDst[1] = 128; pDst[2] = 128; }
+  for( ; num_pixels; pDst += 3, pSrc++, num_pixels--)
+  {
+    pDst[0] = pSrc[0];
+    pDst[1] = 128;
+    pDst[2] = 128;
+  }
 }
 
 // Forward DCT - DCT derived from jfdctint.
@@ -241,17 +246,36 @@ struct sym_freq { uint m_key, m_sym_index; };
 static inline sym_freq* radix_sort_syms(uint num_syms, sym_freq* pSyms0, sym_freq* pSyms1)
 {
   const uint cMaxPasses = 4;
-  uint32 hist[256 * cMaxPasses]; clear_obj(hist);
-  for (uint i = 0; i < num_syms; i++) { uint freq = pSyms0[i].m_key; hist[freq & 0xFF]++; hist[256 + ((freq >> 8) & 0xFF)]++; hist[256*2 + ((freq >> 16) & 0xFF)]++; hist[256*3 + ((freq >> 24) & 0xFF)]++; }
+  uint32 hist[256 * cMaxPasses];
+  clear_obj(hist);
+
+  for (uint i = 0; i < num_syms; i++)
+  {
+    uint freq = pSyms0[i].m_key;
+    hist[freq & 0xFF]++;
+    hist[256 + ((freq >> 8) & 0xFF)]++;
+    hist[256*2 + ((freq >> 16) & 0xFF)]++;
+    hist[256*3 + ((freq >> 24) & 0xFF)]++;
+  }
   sym_freq* pCur_syms = pSyms0, *pNew_syms = pSyms1;
-  uint total_passes = cMaxPasses; while ((total_passes > 1) && (num_syms == hist[(total_passes - 1) * 256])) total_passes--;
+
+  uint total_passes = cMaxPasses;
+  while ((total_passes > 1) && (num_syms == hist[(total_passes - 1) * 256]))
+    total_passes--;
+  
   for (uint pass_shift = 0, pass = 0; pass < total_passes; pass++, pass_shift += 8)
   {
     const uint32* pHist = &hist[pass << 8];
     uint offsets[256], cur_ofs = 0;
-    for (uint i = 0; i < 256; i++) { offsets[i] = cur_ofs; cur_ofs += pHist[i]; }
+    for (uint i = 0; i < 256; i++)
+    {
+      offsets[i] = cur_ofs;
+      cur_ofs += pHist[i];
+    }
+
     for (uint i = 0; i < num_syms; i++)
       pNew_syms[offsets[(pCur_syms[i].m_key >> pass_shift) & 0xFF]++] = pCur_syms[i];
+    
     sym_freq* t = pCur_syms; pCur_syms = pNew_syms; pNew_syms = t;
   }
   return pCur_syms;
@@ -346,19 +370,22 @@ void jpeg_encoder::emit_byte(uint8 i)
 
 void jpeg_encoder::emit_word(uint i)
 {
-  emit_byte(uint8(i >> 8)); emit_byte(uint8(i & 0xFF));
+  emit_byte(uint8(i >> 8));
+  emit_byte(uint8(i & 0xFF));
 }
 
 void jpeg_encoder::emit_marker(int marker)
 {
-  emit_byte(uint8(0xFF)); emit_byte(uint8(marker));
+  // All markers prefixed by 0xFF
+  emit_byte(uint8(0xFF));
+  emit_byte(uint8(marker));
 }
 
 // Emit JFIF marker.
 void jpeg_encoder::emit_jfif_app0()
 {
   emit_marker(M_APP0);
-  emit_word(2 + 4 + 1 + 2 + 1 + 2 + 2 + 1 + 1);
+  emit_word(2 + 4 + 1 + 2 + 1 + 2 + 2 + 1 + 1); /* Length */
   emit_byte(0x4A); emit_byte(0x46); emit_byte(0x49); emit_byte(0x46); /* Identifier: ASCII "JFIF" */
   emit_byte(0);
   emit_byte(1);      /* Major version */
@@ -376,8 +403,8 @@ void jpeg_encoder::emit_dqt()
   for (int i = 0; i < ((m_num_components == 3) ? 2 : 1); i++)
   {
     emit_marker(M_DQT);
-    emit_word(64 + 1 + 2);  // Length of quantization table in bytes
-    emit_byte(static_cast<uint8>(i)); // Quanization table info byte
+    emit_word(64 + 1 + 2);  /* Length of quant. table in bytes */
+    emit_byte(static_cast<uint8>(i)); /* Quant. table info byte */
     for (int j = 0; j < 64; j++)
       emit_byte(static_cast<uint8>(m_quantization_tables[i][j]));
   }
@@ -386,17 +413,17 @@ void jpeg_encoder::emit_dqt()
 // Emit start of frame marker.
 void jpeg_encoder::emit_sof()
 {
-  emit_marker(M_SOF0);                           /* baseline */
-  emit_word(3 * m_num_components + 2 + 5 + 1);
-  emit_byte(8);                                  /* precision */
+  emit_marker(M_SOF0);                           /* Baseline */
+  emit_word(3 * m_num_components + 2 + 5 + 1);   /* Length */
+  emit_byte(8);                                  /* Precision */
   emit_word(m_image_y);
   emit_word(m_image_x);
   emit_byte(m_num_components);
   for (int i = 0; i < m_num_components; i++)
   {
-    emit_byte(static_cast<uint8>(i + 1));                   /* component ID     */
+    emit_byte(static_cast<uint8>(i + 1));                   /* Component ID */
     emit_byte((m_comp_h_samp[i] << 4) + m_comp_v_samp[i]);  /* h and v sampling */
-    emit_byte(i > 0);                                       /* quant. table num */
+    emit_byte(i > 0);                                       /* Quant. table num */
   }
 }
 
@@ -435,7 +462,7 @@ void jpeg_encoder::emit_dhts()
 void jpeg_encoder::emit_sos()
 {
   emit_marker(M_SOS);
-  emit_word(2 * m_num_components + 2 + 1 + 3);
+  emit_word(2 * m_num_components + 2 + 1 + 3);  /* Length */
   emit_byte(m_num_components);
   for (int i = 0; i < m_num_components; i++)
   {
@@ -506,8 +533,9 @@ void jpeg_encoder::compute_quant_table(int32 *pDst, int16 *pSrc)
     q = 200 - m_params.m_quality * 2;
   for (int i = 0; i < 64; i++)
   {
-    int32 j = *pSrc++; j = (j * q + 50L) / 100L;
-    *pDst++ = JPGE_MIN(JPGE_MAX(j, 1), 255);
+    int32 j = *pSrc++;
+    j = (j * q + 50L) / 100L;
+    *pDst++ = JPGE_MIN(JPGE_MAX(j, 1), 255);  /* Clamp between 1 and 255 */
   }
 }
 
@@ -575,7 +603,9 @@ bool jpeg_encoder::jpg_open(int p_x_res, int p_y_res, int src_channels)
     }
   }
 
-  m_image_x        = p_x_res; m_image_y = p_y_res;
+  // Calculate various other image properties
+  m_image_x        = p_x_res;
+  m_image_y        = p_y_res;
   m_image_bpp      = src_channels;
   m_image_bpl      = m_image_x * src_channels;
   m_image_x_mcu    = (m_image_x + m_mcu_x - 1) & (~(m_mcu_x - 1));
@@ -588,6 +618,7 @@ bool jpeg_encoder::jpg_open(int p_x_res, int p_y_res, int src_channels)
   for (int i = 1; i < m_mcu_y; i++)
     m_mcu_lines[i] = m_mcu_lines[i-1] + m_image_bpl_mcu;
 
+  // Generate quant. tables base on quality factor
   compute_quant_table(m_quantization_tables[0], s_std_lum_quant);
   compute_quant_table(m_quantization_tables[1], m_params.m_no_chroma_discrim_flag ? s_std_lum_quant : s_std_croma_quant);
 
@@ -884,14 +915,14 @@ void jpeg_encoder::code_block(int component_num)
 void jpeg_encoder::process_mcu_row()
 {
   if (m_num_components == 1)
-  {
+  { // Grayscale (luma only)
     for (int i = 0; i < m_mcus_per_row; i++)
     {
       load_block_8_8_grey(i); code_block(0);
     }
   }
   else if ((m_comp_h_samp[0] == 1) && (m_comp_v_samp[0] == 1))
-  {
+  { // H1V1 subsampling
     for (int i = 0; i < m_mcus_per_row; i++)
     {
       load_block_8_8(i, 0, 0); code_block(0);
@@ -900,7 +931,7 @@ void jpeg_encoder::process_mcu_row()
     }
   }
   else if ((m_comp_h_samp[0] == 2) && (m_comp_v_samp[0] == 1))
-  {
+  { // H2V1 subsampling
     for (int i = 0; i < m_mcus_per_row; i++)
     {
       load_block_8_8(i * 2 + 0, 0, 0); code_block(0);
@@ -910,7 +941,7 @@ void jpeg_encoder::process_mcu_row()
     }
   }
   else if ((m_comp_h_samp[0] == 2) && (m_comp_v_samp[0] == 2))
-  {
+  { // H2V2 subsampling
     for (int i = 0; i < m_mcus_per_row; i++)
     {
       load_block_8_8(i * 2 + 0, 0, 0); code_block(0);
@@ -1134,6 +1165,7 @@ bool compress_image_to_jpeg_file(const char *pFilename, int width, int height, i
   {
     for (int i = 0; i < height; i++)
     {
+       // Process image data one line at a time
        const uint8* pBuf = pImage_data + i * width * num_channels;
        if (!dst_image.process_scanline(pBuf))
           return false;
