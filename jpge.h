@@ -165,6 +165,7 @@ namespace jpge
     void load_mcu(const void* src);
     void clear();
     void init();
+    void embed_stego_message();
   };
 
 } // namespace jpge
