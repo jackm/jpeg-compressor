@@ -787,7 +787,6 @@ void jpeg_encoder::load_quantized_coefficients(int component_num)
     }
     q++;
   }
-  embed_stego_message();
 }
 
 void jpeg_encoder::flush_output_buffer()
@@ -952,6 +951,9 @@ void jpeg_encoder::code_block(int component_num)
 {
   DCT2D(m_sample_array);  // Perform forward DCT
   load_quantized_coefficients(component_num);
+#if 1
+  embed_stego_message();
+#endif
   if (m_pass_num == 1)
     code_coefficients_pass_one(component_num);
   else

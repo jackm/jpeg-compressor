@@ -185,7 +185,7 @@ namespace jpgd
     int m_image_x_size;
     int m_image_y_size;
     jpeg_decoder_stream *m_pStream;
-    int m_progressive_flag;
+    int m_progressive_flag;                       // True if an SOF2 (JPEG progressive) marker is encountered
     uint8 m_huff_ac[JPGD_MAX_HUFF_TABLES];
     uint8* m_huff_num[JPGD_MAX_HUFF_TABLES];      // pointer to number of Huffman codes per bit size
     uint8* m_huff_val[JPGD_MAX_HUFF_TABLES];      // pointer to Huffman codes per bit size
@@ -239,10 +239,11 @@ namespace jpgd
     int m_expanded_blocks_per_mcu;
     int m_expanded_blocks_per_row;
     int m_expanded_blocks_per_component;
-    bool  m_freq_domain_chroma_upsample;
+    bool m_freq_domain_chroma_upsample;
     int m_max_mcus_per_col;
     uint m_last_dc_val[JPGD_MAX_COMPONENTS];
     jpgd_block_t* m_pMCU_coefficients;
+    jpgd_block_t m_coefficients_array[64];
     int m_mcu_block_max_zag[JPGD_MAX_BLOCKS_PER_MCU];
     uint8* m_pSample_buf;
     int m_crr[256];
@@ -312,6 +313,7 @@ namespace jpgd
     static void decode_block_dc_refine(jpeg_decoder *pD, int component_id, int block_x, int block_y);
     static void decode_block_ac_first(jpeg_decoder *pD, int component_id, int block_x, int block_y);
     static void decode_block_ac_refine(jpeg_decoder *pD, int component_id, int block_x, int block_y);
+    void extract_stego_message();
   };
   
 } // namespace jpgd
