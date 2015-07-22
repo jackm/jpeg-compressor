@@ -466,11 +466,15 @@ void jpeg_encoder::emit_sos()
   emit_byte(m_num_components);
   for (int i = 0; i < m_num_components; i++)
   {
-    emit_byte(static_cast<uint8>(i + 1));
+    emit_byte(static_cast<uint8>(i + 1)); /* Component ID (1=Y, 2=Cb, 3=Cr) */
+    // Huffman table to use
+    //  bit 0..3: AC table ID
+    //  bit 4..7: DC table ID
     if (i == 0)
-      emit_byte((0 << 4) + 0);
+      // Luma component
+      emit_byte((0 << 4) + 0);  /* AC table #0, DC table #0 (0x00) */
     else
-      emit_byte((1 << 4) + 1);
+      emit_byte((1 << 4) + 1);  /* AC table #1, DC table #1 (0x11) */
   }
   emit_byte(0);     /* spectral selection */
   emit_byte(63);
@@ -771,7 +775,10 @@ void jpeg_encoder::put_bits(uint bits, uint len)
     uint8 c;
     #define JPGE_PUT_BYTE(c) { *m_pOut_buf++ = (c); if (--m_out_buf_left == 0) flush_output_buffer(); }
     JPGE_PUT_BYTE(c = (uint8)((m_bit_buffer >> 16) & 0xFF));
+
+    // Stuff a zero byte if writing a 0xFF
     if (c == 0xFF) JPGE_PUT_BYTE(0);
+
     m_bit_buffer <<= 8;
     m_bits_in -= 8;
   }
@@ -785,10 +792,12 @@ void jpeg_encoder::code_coefficients_pass_one(int component_num)
   uint32 *dc_count = component_num ? m_huff_count[0 + 1] : m_huff_count[0 + 0];
   uint32 *ac_count = component_num ? m_huff_count[2 + 1] : m_huff_count[2 + 0];
 
+  // Subsequent DC coefficient is a difference value from the previous
   temp1 = pSrc[0] - m_last_dc_val[component_num];
   m_last_dc_val[component_num] = pSrc[0];
-  if (temp1 < 0) temp1 = -temp1;
+  if (temp1 < 0) temp1 = -temp1;  // Absolute value
 
+  // Count number of bits in DC coefficient difference
   nbits = 0;
   while (temp1)
   {
@@ -799,7 +808,8 @@ void jpeg_encoder::code_coefficients_pass_one(int component_num)
   dc_count[nbits]++;
   for (run_len = 0, i = 1; i < 64; i++)
   {
-    if ((temp1 = m_coefficient_array[i]) == 0)
+    temp1 = m_coefficient_array[i];
+    if (temp1 == 0)
     {
       run_len++;
     }
@@ -810,14 +820,22 @@ void jpeg_encoder::code_coefficients_pass_one(int component_num)
         ac_count[0xF0]++;
         run_len -= 16;
       }
-      if (temp1 < 0) temp1 = -temp1;  // Absolute value
+
+      if (temp1 < 0)
+        temp1 = -temp1; // Absolute value
+
+      // Count bits
       nbits = 1;
-      while (temp1 >>= 1) nbits++;
+      while (temp1 >>= 1)
+        nbits++;
+
       ac_count[(run_len << 4) + nbits]++;
       run_len = 0;
     }
   }
-  if (run_len) ac_count[0]++;
+
+  if (run_len)
+    ac_count[0]++;
 }
 
 void jpeg_encoder::code_coefficients_pass_two(int component_num)
@@ -842,18 +860,22 @@ void jpeg_encoder::code_coefficients_pass_two(int component_num)
     code_sizes[1] = m_huff_code_sizes[2 + 1];
   }
 
+  // Subsequent DC coefficient is a difference value from the previous block
   temp1 = temp2 = pSrc[0] - m_last_dc_val[component_num];
   m_last_dc_val[component_num] = pSrc[0];
 
   if (temp1 < 0)
   {
-    temp1 = -temp1; temp2--;
+    temp1 = -temp1; // Absolute value
+    temp2--;
   }
 
+  // Count number of bits in DC coefficient difference
   nbits = 0;
   while (temp1)
   {
-    nbits++; temp1 >>= 1;
+    nbits++;
+    temp1 >>= 1;
   }
 
   put_bits(codes[0][nbits], code_sizes[0][nbits]);
@@ -861,7 +883,8 @@ void jpeg_encoder::code_coefficients_pass_two(int component_num)
 
   for (run_len = 0, i = 1; i < 64; i++)
   {
-    if ((temp1 = m_coefficient_array[i]) == 0)
+    temp1 = m_coefficient_array[i];
+    if (temp1 == 0)
       run_len++;
     else
     {
@@ -870,20 +893,26 @@ void jpeg_encoder::code_coefficients_pass_two(int component_num)
         put_bits(codes[1][0xF0], code_sizes[1][0xF0]);
         run_len -= 16;
       }
-      if ((temp2 = temp1) < 0)
+
+      temp2 = temp1;
+      if (temp1 < 0)
       {
-        temp1 = -temp1;
+        temp1 = -temp1; // Absolute value
         temp2--;
       }
+
+      // Count bits
       nbits = 1;
       while (temp1 >>= 1)
         nbits++;
+
       j = (run_len << 4) + nbits;
       put_bits(codes[1][j], code_sizes[1][j]);
       put_bits(temp2 & ((1 << nbits) - 1), nbits);
       run_len = 0;
     }
   }
+
   if (run_len)
     put_bits(codes[1][0], code_sizes[1][0]);
 }
@@ -1151,6 +1180,7 @@ bool compress_image_to_jpeg_file(const char *pFilename, int width, int height, i
   if (!dst_image.init(&dst_stream, width, height, num_channels, comp_params))
     return false;
 
+  // After SOS marker
   for (uint pass_index = 0; pass_index < dst_image.get_total_passes(); pass_index++)
   {
     for (int i = 0; i < height; i++)
