@@ -1824,7 +1824,7 @@ void jpeg_decoder::extract_stego_message()
 {
   jpgd_block_t *pSrc = m_coefficients_array;
   
-  char secret_extract[16] = "";
+  char secret_extract[256] = "";
   uint current_bit;  // Current bit in secret message 
   uint current_byte;
   uint8 LSb;
@@ -1835,6 +1835,10 @@ void jpeg_decoder::extract_stego_message()
     current_byte = current_bit / 8;
     secret_extract[current_byte] |= static_cast<char>(LSb << (current_bit - (8 * current_byte))); // Add bit to message
   }
+
+  if (strlen(secret_extract) >= 64)
+    secret_extract[64-1] = '\0';
+  printf("Extracted message: %s\n", secret_extract);
 }
 
 static inline int dequantize_ac(int c, int q) {	c *= q;	return c; }
