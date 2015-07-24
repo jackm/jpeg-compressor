@@ -733,7 +733,8 @@ void jpeg_encoder::load_block_16_8_8(int x, int c)
 void jpeg_encoder::embed_stego_message()
 {
   int16 *pDst = m_coefficient_array;
-  int k = 0;  // Current bit index of secret message
+  uint current_bit = 0;  // Current bit index of secret message
+  uint current_byte, bit_offset;
   uint8 LSb_coeff, LSb_sec;
 
   const char *secret = "secret";        // "secret" = 73 65 63 72 65 74
@@ -741,19 +742,23 @@ void jpeg_encoder::embed_stego_message()
 
   for (int i = 0; i < 64; i++)
   {
-    LSb_coeff = static_cast<uint8>(*pDst & 0x1);                // LSb of last coefficient calcuated
-    LSb_sec = static_cast<uint8>((secret[i] & (0x1 << k)) >> k);  // LSb of current secret char
+    // In case secret message is longer than 64 bits
+    if (current_bit > 64)
+      return;
+
+    LSb_coeff = static_cast<uint8>(pDst[i] & 0x1);  // LSb of last coefficient calcuated
+    current_byte = current_bit / 8;
+    bit_offset = (current_bit - (8 * current_byte));
+    LSb_sec = static_cast<uint8>((secret[current_byte] & (0x1 << bit_offset)) >> bit_offset); // LSb of current secret char
 
     // If LSb_coeff XOR LSb_sec == 1 then the LSb of the coefficient will be modified
 
-    if (k <= secret_bits)
+    if (current_bit <= secret_bits)
     {
-      *pDst &= ~0x1;  // Clear lowest bit
-      *pDst |= static_cast<int16>(LSb_sec & 0x1);  // Set lowest bit
-      k++;
+      pDst[i] &= ~0x1;  // Clear lowest bit
+      pDst[i] |= static_cast<int16>(LSb_sec & 0x1);  // Set lowest bit
+      current_bit++;
     }
-
-    pDst++;
   }
 }
 

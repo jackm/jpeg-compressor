@@ -629,7 +629,7 @@ static const int s_extend_test[16] = { 0, 0x0001, 0x0002, 0x0004, 0x0008, 0x0010
 static const int s_extend_offset[16] = { 0, ((-1)<<1) + 1, ((-1)<<2) + 1, ((-1)<<3) + 1, ((-1)<<4) + 1, ((-1)<<5) + 1, ((-1)<<6) + 1, ((-1)<<7) + 1, ((-1)<<8) + 1, ((-1)<<9) + 1, ((-1)<<10) + 1, ((-1)<<11) + 1, ((-1)<<12) + 1, ((-1)<<13) + 1, ((-1)<<14) + 1, ((-1)<<15) + 1 };
 static const int s_extend_mask[] = { 0, (1<<0), (1<<1), (1<<2), (1<<3), (1<<4), (1<<5), (1<<6), (1<<7), (1<<8), (1<<9), (1<<10), (1<<11), (1<<12), (1<<13), (1<<14), (1<<15), (1<<16) };
 // The logical AND's in this macro are to shut up static code analysis (aren't really necessary - couldn't find another way to do this)
-#define JPGD_HUFF_EXTEND(x, s) (((x) < s_extend_test[s & 15]) ? ((x) + s_extend_offset[s & 15]) : (x))
+#define JPGD_HUFF_EXTEND(x, s) (((x) < s_extend_test[s & 0xF]) ? ((x) + s_extend_offset[s & 15]) : (x))
 
 // Clamps a value between 0-255.
 inline uint8 jpeg_decoder::clamp(int i)
@@ -1820,6 +1820,23 @@ void jpeg_decoder::process_restart()
   get_bits_no_markers(16);
 }
 
+void jpeg_decoder::extract_stego_message()
+{
+  jpgd_block_t *pSrc = m_coefficients_array;
+  
+  char secret_extract[16] = "";
+  uint current_bit;  // Current bit in secret message 
+  uint current_byte;
+  uint8 LSb;
+  
+  for (current_bit = 0; current_bit < 64; current_bit++)
+  {
+    LSb = static_cast<uint8>(pSrc[current_bit] & 0x1);  // Get least sig bit
+    current_byte = current_bit / 8;
+    secret_extract[current_byte] |= static_cast<char>(LSb << (current_bit - (8 * current_byte))); // Add bit to message
+  }
+}
+
 static inline int dequantize_ac(int c, int q) {	c *= q;	return c; }
 
 // Decodes and dequantizes the next row of coefficients.
@@ -1838,13 +1855,17 @@ void jpeg_decoder::decode_next_row()
       int component_id = m_mcu_org[mcu_block];
       jpgd_quant_t *q = m_quant[m_comp_quant[component_id]];
 
+      int16 *pDst = m_coefficients_array;
+
       int r, s;
+      // Decode DC coefficient
       s = huff_decode(m_pHuff_tabs[m_comp_dc_tab[component_id]], r);
-      s = JPGD_HUFF_EXTEND(r, s);
+      s = JPGD_HUFF_EXTEND(r, s); // Sign extend decoded value
 
       m_last_dc_val[component_id] = (s += m_last_dc_val[component_id]);
 
-      p[0] = static_cast<jpgd_block_t>(s * q[0]);
+      pDst[0] = s;
+      p[0] = static_cast<jpgd_block_t>(s * q[0]); // Quantize DC coefficient and store in m_pMCU_coefficients
 
       int prev_num_set = m_mcu_block_max_zag[mcu_block];
 
@@ -1857,10 +1878,10 @@ void jpeg_decoder::decode_next_row()
         s = huff_decode(pH, extra_bits);
 
         r = s >> 4;
-        s &= 15;
+        s &= 0xF;
 
         if (s)
-        {
+        { // Non-zero decoded value
           if (r)
           {
             if ((k + r) > 63)
@@ -1871,21 +1892,25 @@ void jpeg_decoder::decode_next_row()
               int n = JPGD_MIN(r, prev_num_set - k);
               int kt = k;
               while (n--)
+              {
+                pDst[kt] = 0;
                 p[g_ZAG[kt++]] = 0;
+              }
             }
 
             k += r;
           }
           
-          s = JPGD_HUFF_EXTEND(extra_bits, s);
+          s = JPGD_HUFF_EXTEND(extra_bits, s);  // Sign extend decoded value
 
           JPGD_ASSERT(k < 64);
 
+          pDst[k] = s;
           p[g_ZAG[k]] = static_cast<jpgd_block_t>(dequantize_ac(s, q[k])); //s * q[k];
         }
         else
-        {
-          if (r == 15)
+        { // Decoded to zero value
+          if (r == 0xF)
           {
             if ((k + 16) > 64)
               stop_decoding(JPGD_DECODE_ERROR);
@@ -1897,6 +1922,7 @@ void jpeg_decoder::decode_next_row()
               while (n--)
               {
                 JPGD_ASSERT(kt <= 63);
+                pDst[kt] = 0;
                 p[g_ZAG[kt++]] = 0;
               }
             }
@@ -1905,7 +1931,9 @@ void jpeg_decoder::decode_next_row()
             JPGD_ASSERT(p[g_ZAG[k]] == 0);
           }
           else
+          {
             break;
+          }
         }
       }
 
@@ -1913,10 +1941,15 @@ void jpeg_decoder::decode_next_row()
       {
         int kt = k;
         while (kt < prev_num_set)
+        {
+          pDst[kt] = 0;
           p[g_ZAG[kt++]] = 0;
+        }
       }
 
       m_mcu_block_max_zag[mcu_block] = k;
+
+      extract_stego_message();
 
       row_block++;
     }
