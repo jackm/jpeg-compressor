@@ -1824,21 +1824,35 @@ void jpeg_decoder::extract_stego_message()
 {
   jpgd_block_t *pSrc = m_coefficients_array;
   
-  char secret_extract[256] = "";
-  uint current_bit;  // Current bit in secret message 
+  static char secret_extract[256];
+  static uint current_bit = 0;  // Current bit in secret message 
+  static int secret_len = -1;
   uint current_byte;
   uint8 LSb;
   
-  for (current_bit = 0; current_bit < 64; current_bit++)
-  {
-    LSb = static_cast<uint8>(pSrc[current_bit] & 0x1);  // Get least sig bit
-    current_byte = current_bit / 8;
-    secret_extract[current_byte] |= static_cast<char>(LSb << (current_bit - (8 * current_byte))); // Add bit to message
-  }
+  // Return immediately once null terminator has been found
+  if (secret_len > -1)
+    return;
 
-  if (strlen(secret_extract) >= 64)
-    secret_extract[64-1] = '\0';
-  printf("Extracted message: %s\n", secret_extract);
+  // Only check AC coefficients (idx 1 to 63)
+  for (int i = 1; i < 64; i++)
+  {
+    if (pSrc[i] != 0 && pSrc[i] != 1)
+    {
+      current_byte = current_bit / 8;
+      LSb = static_cast<uint8>(pSrc[i] & 0x1);  // Get least sig bit
+      secret_extract[current_byte] |= static_cast<char>(LSb << (current_bit - (8 * current_byte))); // Add bit to message
+      current_bit++;
+
+      // Check for null terminator when at a byte boundary
+      if (current_bit % 8 == 0 && secret_extract[current_byte] == '\0')
+      {
+        secret_len = current_bit; // Record length now that it's known
+        printf("Extracted message: \"%s\"\n", secret_extract);
+        return;
+      }
+    }
+  }
 }
 
 static inline int dequantize_ac(int c, int q) {	c *= q;	return c; }

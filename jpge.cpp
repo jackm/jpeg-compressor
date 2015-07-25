@@ -733,30 +733,32 @@ void jpeg_encoder::load_block_16_8_8(int x, int c)
 void jpeg_encoder::embed_stego_message()
 {
   int16 *pDst = m_coefficient_array;
-  uint current_bit = 0;  // Current bit index of secret message
+  static uint current_bit = 0;  // Current bit index of secret message
   uint current_byte, bit_offset;
   uint8 LSb_coeff, LSb_sec;
 
-  const char *secret = "secret";        // "secret" = 73 65 63 72 65 74
-  int secret_bits = strlen(secret) * 8; // Number of bits in secret message
+  const char secret[] = "secret message";
+  int secret_bits = (strlen(secret) * 8) + 8; // Number of bits in secret message (including null byte)
 
-  for (int i = 0; i < 64; i++)
+  // Only modify AC coefficients (idx 1 to 63)
+  for (int i = 1; i < 64; i++)
   {
-    // In case secret message is longer than 64 bits
-    if (current_bit > 64)
+    // Return immediately if whole message has already been written
+    if (current_bit >= secret_bits)
       return;
 
-    LSb_coeff = static_cast<uint8>(pDst[i] & 0x1);  // LSb of last coefficient calcuated
-    current_byte = current_bit / 8;
-    bit_offset = (current_bit - (8 * current_byte));
-    LSb_sec = static_cast<uint8>((secret[current_byte] & (0x1 << bit_offset)) >> bit_offset); // LSb of current secret char
-
-    // If LSb_coeff XOR LSb_sec == 1 then the LSb of the coefficient will be modified
-
-    if (current_bit <= secret_bits)
+    // Excluse AC coefficients of values 0 and 1
+    if (pDst[i] != 0 && pDst[i] != 1)
     {
+      LSb_coeff = static_cast<uint8>(pDst[i] & 0x1);  // LSb of last coefficient calcuated
+      current_byte = current_bit / 8;
+      bit_offset = (current_bit - (8 * current_byte));
+      LSb_sec = static_cast<uint8>((secret[current_byte] & (0x1 << bit_offset)) >> bit_offset); // LSb of current secret char
+
+      // If LSb_coeff XOR LSb_sec == 1 then the LSb of the coefficient will be modified
+
       pDst[i] &= ~0x1;  // Clear lowest bit
-      pDst[i] |= static_cast<int16>(LSb_sec & 0x1);  // Set lowest bit
+      pDst[i] |= static_cast<int16>(LSb_sec & 0x1); // Set lowest bit
       current_bit++;
     }
   }
@@ -956,9 +958,7 @@ void jpeg_encoder::code_block(int component_num)
 {
   DCT2D(m_sample_array);  // Perform forward DCT
   load_quantized_coefficients(component_num);
-#if 1
   embed_stego_message();
-#endif
   if (m_pass_num == 1)
     code_coefficients_pass_one(component_num);
   else
