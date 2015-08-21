@@ -1824,7 +1824,7 @@ void jpeg_decoder::extract_stego_message()
 {
   jpgd_block_t *pSrc = m_coefficients_array;
   
-  static char secret_extract[256];
+  static char secret_extract[128];
   static uint current_bit = 0;  // Current bit in secret message 
   static int secret_len = -1;
   uint current_byte;
@@ -1841,7 +1841,7 @@ void jpeg_decoder::extract_stego_message()
     {
       current_byte = current_bit / 8;
       LSb = static_cast<uint8>(pSrc[i] & 0x1);  // Get least sig bit
-      secret_extract[current_byte] |= static_cast<char>(LSb << (current_bit - (8 * current_byte))); // Add bit to message
+      secret_extract[current_byte] |= static_cast<char>(LSb << (current_bit - (current_byte * 8))); // Add bit to message
       current_bit++;
 
       // Check for null terminator when at a byte boundary
@@ -1862,18 +1862,18 @@ void jpeg_decoder::decode_next_row()
 {
   int row_block = 0;
 
+  // Loop for each MCU in current scanline
   for (int mcu_row = 0; mcu_row < m_mcus_per_row; mcu_row++)
   {
     if ((m_restart_interval) && (m_restarts_left == 0))
       process_restart();
 
     jpgd_block_t *p = m_pMCU_coefficients;
+    // Loop for each block per MCU (number of components)
     for (int mcu_block = 0; mcu_block < m_blocks_per_mcu; mcu_block++, p += 64)
     {
       int component_id = m_mcu_org[mcu_block];
       jpgd_quant_t *q = m_quant[m_comp_quant[component_id]];
-
-      int16 *pDst = m_coefficients_array;
 
       int r, s;
       // Decode DC coefficient
@@ -1882,7 +1882,7 @@ void jpeg_decoder::decode_next_row()
 
       m_last_dc_val[component_id] = (s += m_last_dc_val[component_id]);
 
-      pDst[0] = s;
+      m_coefficients_array[0] = s;
       p[0] = static_cast<jpgd_block_t>(s * q[0]); // Quantize DC coefficient and store in m_pMCU_coefficients
 
       int prev_num_set = m_mcu_block_max_zag[mcu_block];
@@ -1911,7 +1911,7 @@ void jpeg_decoder::decode_next_row()
               int kt = k;
               while (n--)
               {
-                pDst[kt] = 0;
+                m_coefficients_array[kt] = 0;
                 p[g_ZAG[kt++]] = 0;
               }
             }
@@ -1923,7 +1923,7 @@ void jpeg_decoder::decode_next_row()
 
           JPGD_ASSERT(k < 64);
 
-          pDst[k] = s;
+          m_coefficients_array[k] = s;
           p[g_ZAG[k]] = static_cast<jpgd_block_t>(dequantize_ac(s, q[k])); //s * q[k];
         }
         else
@@ -1940,7 +1940,7 @@ void jpeg_decoder::decode_next_row()
               while (n--)
               {
                 JPGD_ASSERT(kt <= 63);
-                pDst[kt] = 0;
+                m_coefficients_array[kt] = 0;
                 p[g_ZAG[kt++]] = 0;
               }
             }
@@ -1960,7 +1960,7 @@ void jpeg_decoder::decode_next_row()
         int kt = k;
         while (kt < prev_num_set)
         {
-          pDst[kt] = 0;
+          m_coefficients_array[kt] = 0;
           p[g_ZAG[kt++]] = 0;
         }
       }

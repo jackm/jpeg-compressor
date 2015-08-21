@@ -737,8 +737,17 @@ void jpeg_encoder::embed_stego_message()
   uint current_byte, bit_offset;
   uint8 LSb_coeff, LSb_sec;
 
-  const char secret[] = "secret message";
-  int secret_bits = (strlen(secret) * 8) + 8; // Number of bits in secret message (including null byte)
+  // total MCUs = (m_image_y_mcu / 8) * (m_image_x_mcu / 8) * m_num_components = 11340
+  // 11340 total calls to embed_stego_message()
+  // Average of 13 usable bits per MCU (AC coefficients that are not 0 or 1)
+
+  const char secret[] = "Reticulating splines";
+  int secret_bits = (strlen(secret) + 1) * 8; // Number of bits in secret message (including null byte)
+
+  // Can't properly embed message if the total bits in the message exeeds
+  // the total number of AC DCT coefficients in all MCUs
+  if (secret_bits > ((m_image_y_mcu / 8) * (m_image_x_mcu / 8) * m_num_components * (64 - 1)))
+    return;
 
   // Only modify AC coefficients (idx 1 to 63)
   for (int i = 1; i < 64; i++)
@@ -752,7 +761,7 @@ void jpeg_encoder::embed_stego_message()
     {
       LSb_coeff = static_cast<uint8>(pDst[i] & 0x1);  // LSb of last coefficient calcuated
       current_byte = current_bit / 8;
-      bit_offset = (current_bit - (8 * current_byte));
+      bit_offset = current_bit - (current_byte * 8);
       LSb_sec = static_cast<uint8>((secret[current_byte] & (0x1 << bit_offset)) >> bit_offset); // LSb of current secret char
 
       // If LSb_coeff XOR LSb_sec == 1 then the LSb of the coefficient will be modified
